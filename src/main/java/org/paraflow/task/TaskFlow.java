@@ -2,10 +2,7 @@ package org.paraflow.task;
 
 import lombok.Data;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -14,9 +11,9 @@ import java.util.stream.Collectors;
  */
 @Data
 public class TaskFlow {
-    private ExecutorService                   executorService = Executors.newCachedThreadPool();
-    private Map<String, Task<?, ?>>           id2TaskMap      = new ConcurrentHashMap<>();
-    private Map<String, CompletableFuture<?>> id2Future       = new ConcurrentHashMap<>();
+    private ExecutorService                            executorService = Executors.newCachedThreadPool();
+    private Map<String, Task>                          id2TaskMap      = new ConcurrentHashMap<>();
+    private Map<String, CompletableFuture<TaskResult>> id2Future       = new ConcurrentHashMap<>();
 
     public void registerTasks(Task... tasks) {
         for (Task task : tasks) {
@@ -27,31 +24,41 @@ public class TaskFlow {
         }
     }
 
-    private boolean checkValidTask(Task task) {
+    private boolean checkValidTask(BaseTask task) {
         return true;
     }
 
     public boolean start() throws ExecutionException, InterruptedException {
-        computeLayer();
-        Map<Integer, List<Task<?, ?>>> layer2Task = id2TaskMap.values()
+        int maxLayer = computeLayer();
+        Map<Integer, List<Task>> layer2Task = id2TaskMap.values()
                 .stream()
-                .collect(Collectors.groupingBy(Task::getLayer));
-        List<Task<?, ?>> initTasks = layer2Task.get(0);
-        for (Task<?, ?> t : initTasks) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(t::execute);
+                .collect(Collectors.groupingBy(BaseTask::getDepLayer));
+        List<Task> initTasks = layer2Task.get(0);
+        for (Task t : initTasks) {
+            CompletableFuture<TaskResult> future = CompletableFuture.supplyAsync(() -> {
+                Object obj = t.execute(new HashMap<>());
+
+                TaskResult result = t.getResultWrapper();
+                result.setResult(obj);
+                System.out.println("fini");
+                return result;
+            }, executorService);
             id2Future.put(t.getId(), future);
         }
-        for (int i = 1; i < layer2Task.size(); i++) {
-            if (!layer2Task.containsKey(i)) {
-                break;
-            }
-            List<Task<?, ?>> layerTasks = layer2Task.get(i);
-            for (Task<?, ?> t : layerTasks) {
+        for (int i = 1; i <= maxLayer; i++) {
+            List<Task> layerTasks = layer2Task.get(i);
+            for (Task t : layerTasks) {
                 CompletableFuture[] dep = t.getPrevTaskIds()
                         .stream()
                         .map(id2Future::get)
                         .toArray(CompletableFuture[]::new);
-                CompletableFuture<Void> future = CompletableFuture.allOf(dep).thenRunAsync(t::execute);
+                CompletableFuture<TaskResult> future = CompletableFuture.allOf(dep).thenApplyAsync(v -> {
+                    Map<String, TaskResult> id2Result = buildId2ResultMap(t);
+                    Object obj = t.execute(id2Result);
+                    TaskResult result = t.getResultWrapper();
+                    result.setResult(obj);
+                    return result;
+                }, executorService);
                 id2Future.put(t.getId(), future);
             }
         }
@@ -59,22 +66,30 @@ public class TaskFlow {
         return true;
     }
 
-    public void computeLayer() {
-        Queue<Task> q = id2TaskMap.values()
+    public int computeLayer() {
+        int maxLayer = 0;
+        Queue<BaseTask> q = id2TaskMap.values()
                 .stream()
                 .filter(task -> task.getPrevTaskIds().isEmpty())
                 .collect(Collectors.toCollection(LinkedList::new));
         while (!q.isEmpty()) {
-            Task task = q.poll();
-            int layer = task.getLayer();
-            List<Task> nextTasks = task.getNextTasks();
-            for (Task nextTask : nextTasks) {
-                nextTask.setLayer(Math.max(layer + 1, nextTask.getLayer()));
-                nextTask.setIn(nextTask.getIn() - 1);
-                if (nextTask.getIn() == 0) {
+            BaseTask task = q.poll();
+            int layer = task.getDepLayer();
+            maxLayer = Math.max(maxLayer, layer);
+            List<BaseTask> nextTasks = task.getNextTasks();
+            for (BaseTask nextTask : nextTasks) {
+                nextTask.setDepLayer(Math.max(layer + 1, nextTask.getDepLayer()));
+                nextTask.setInDegree(nextTask.getInDegree() - 1);
+                if (nextTask.getInDegree() == 0) {
                     q.offer(nextTask);
                 }
             }
         }
+        id2TaskMap.forEach((key, value) -> System.out.println(key + ": " + value.getDepLayer()));
+        return maxLayer;
+    }
+
+    private Map<String, TaskResult> buildId2ResultMap(Task task) {
+        return task.getPrevTaskIds().stream().collect(Collectors.toMap(id -> id, id -> id2Future.get(id).join()));
     }
 }
