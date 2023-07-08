@@ -15,7 +15,7 @@ import java.util.Map;
 public class Task<I, O> extends BaseTask {
     private I              param;
     private TaskResult<O>  resultWrapper = new TaskResult<>();
-    private Job<I, O>      job           = (i, m) -> null;
+    private Job<I, O>      job           = i -> null;
     private Callback<I, O> callback;
 
     public Task() {
@@ -25,8 +25,8 @@ public class Task<I, O> extends BaseTask {
         super(id);
     }
 
-    public O execute(Map<String, TaskResult> id2Result) {
-        return job.doJob(param, id2Result);
+    public O execute() {
+        return job.doJob(param);
     }
 
     public void setJob(I param, Job<I, O> job) {

@@ -9,5 +9,5 @@ import java.util.Map;
  */
 @FunctionalInterface
 public interface Job<I, O> {
-    O doJob(I param, Map<String, TaskResult> resultMap);
+    O doJob(I param);
 }

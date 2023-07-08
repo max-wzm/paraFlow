@@ -2,7 +2,10 @@ package org.paraflow.task;
 
 import lombok.Data;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -33,31 +36,19 @@ public class TaskFlow {
         Map<Integer, List<Task>> layer2Task = id2TaskMap.values()
                 .stream()
                 .collect(Collectors.groupingBy(BaseTask::getDepLayer));
-        List<Task> initTasks = layer2Task.get(0);
-        for (Task t : initTasks) {
-            CompletableFuture<TaskResult> future = CompletableFuture.supplyAsync(() -> {
-                Object obj = t.execute(new HashMap<>());
-
-                TaskResult result = t.getResultWrapper();
-                result.setResult(obj);
-                System.out.println("fini");
-                return result;
-            }, executorService);
-            id2Future.put(t.getId(), future);
-        }
-        for (int i = 1; i <= maxLayer; i++) {
+        for (int i = 0; i <= maxLayer; i++) {
             List<Task> layerTasks = layer2Task.get(i);
             for (Task t : layerTasks) {
-                CompletableFuture[] dep = t.getPrevTaskIds()
+                CompletableFuture[] deps = t.getPrevTaskIds()
                         .stream()
                         .map(id2Future::get)
                         .toArray(CompletableFuture[]::new);
-                CompletableFuture<TaskResult> future = CompletableFuture.allOf(dep).thenApplyAsync(v -> {
-                    Map<String, TaskResult> id2Result = buildId2ResultMap(t);
-                    Object obj = t.execute(id2Result);
-                    TaskResult result = t.getResultWrapper();
-                    result.setResult(obj);
-                    return result;
+                CompletableFuture<TaskResult> future = CompletableFuture.allOf(deps).thenApplyAsync(v -> {
+//                    Map<String, TaskResult> id2Result = buildId2ResultMap(t);
+                    Object obj = t.execute();
+                    TaskResult resWrapper = t.getResultWrapper();
+                    resWrapper.setResult(obj);
+                    return resWrapper;
                 }, executorService);
                 id2Future.put(t.getId(), future);
             }
