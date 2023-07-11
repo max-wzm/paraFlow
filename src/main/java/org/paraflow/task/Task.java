@@ -2,10 +2,9 @@ package org.paraflow.task;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.paraflow.action.Callback;
 import org.paraflow.action.Job;
-
-import java.util.Map;
+import org.paraflow.action.OnFailure;
+import org.paraflow.action.OnSuccess;
 
 /**
  * @author wangzhiming
@@ -13,10 +12,13 @@ import java.util.Map;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class Task<I, O> extends BaseTask {
-    private I              param;
-    private TaskResult<O>  resultWrapper = new TaskResult<>();
-    private Job<I, O>      job           = i -> null;
-    private Callback<I, O> callback;
+    private I               param;
+    private TaskResult<O>   resultWrapper = new TaskResult<>();
+    private Job<I, O>       job           = i -> null;
+    private OnSuccess<I, O> onSuccess     = i -> null;
+    private OnFailure<I, O> onFailure     = i -> null;
+    private boolean         abortIfFailed = false;
+    // exceptionPolicy: abortFlow, ignore, self-define
 
     public Task() {
     }
@@ -27,6 +29,14 @@ public class Task<I, O> extends BaseTask {
 
     public O execute() {
         return job.doJob(param);
+    }
+
+    public O onFailure() {
+        return onFailure.doCallback(param);
+    }
+
+    public O onSuccess() {
+        return onSuccess.doCallback(param);
     }
 
     public void setJob(I param, Job<I, O> job) {

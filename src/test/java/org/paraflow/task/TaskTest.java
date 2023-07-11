@@ -45,17 +45,28 @@ public class TaskTest {
         Task<String, String> a = new Task<>();
         a.setJob(i -> {
             try {
-                Thread.sleep(2000);
+                Thread.sleep(1000);
 
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            System.out.println("a throws");
+            throw new RuntimeException();
+//            return null;
+        });
+        a.setOnFailure(i->{
+            System.out.println("Exception");
+            int m = 1/0;
+            return null;
+        });
+        a.setOnSuccess(i -> {
+            System.out.println("hahah");
             return null;
         });
         Task<String, String> b = new Task<>();
         b.setJob(i -> {
             try {
-                Thread.sleep(3000);
+                Thread.sleep(2000);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -65,7 +76,7 @@ public class TaskTest {
         Task<String, String> c = new Task<>();
         c.setJob(i -> {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(500);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -97,8 +108,13 @@ public class TaskTest {
         b.addNext(e, d);
         c.addNext(b, d);
         d.addNext(e);
+        /**
+         *          / e
+         * a -> b --
+         *   c /__   \ d
+         */
         TaskFlow taskFlow = new TaskFlow();
-        taskFlow.registerTasks(a, b, c, d, e);
+        taskFlow.registerTasks(a,c);
         long oldtime = System.currentTimeMillis();
         taskFlow.start();
         System.out.println(System.currentTimeMillis() - oldtime);

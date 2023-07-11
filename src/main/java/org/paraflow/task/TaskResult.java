@@ -7,6 +7,6 @@ import lombok.Data;
  */
 @Data
 public class TaskResult<T> {
-    private TaskStateEnum state;
+    private TaskStateEnum state = TaskStateEnum.INIT;
     private T             result;
 }

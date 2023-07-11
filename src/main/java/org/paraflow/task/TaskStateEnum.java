@@ -1,8 +1,8 @@
 package org.paraflow.task;
 
 public enum TaskStateEnum {
-    READY,
-    DONE,
-    ERROR,
+    INIT,
+    SUCCESS,
+    FAILURE,
     TIMEOUT,
 }
