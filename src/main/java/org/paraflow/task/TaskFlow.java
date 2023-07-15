@@ -57,7 +57,7 @@ public class TaskFlow {
                     if (e != null) {
                         resWrapper = task.getResultWrapper();
                         resWrapper.setState(TaskStateEnum.FAILURE);
-                        resWrapper.setResult(task.onFailure());
+                        resWrapper.setResult(task.onFailure(e.getCause()));
                         if (task.isAbortIfFailed()) {
                             abort();
                         }
@@ -112,9 +112,5 @@ public class TaskFlow {
         }
         id2TaskMap.forEach((key, value) -> System.out.println(key + ": " + value.getDepLayer()));
         return id2TaskMap.values().stream().collect(Collectors.groupingBy(BaseTask::getDepLayer));
-    }
-
-    private Map<String, TaskResult> buildId2ResultMap(Task task) {
-        return task.getPrevTaskIds().stream().collect(Collectors.toMap(id -> id, id -> id2Future.get(id).join()));
     }
 }

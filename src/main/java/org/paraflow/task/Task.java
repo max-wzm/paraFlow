@@ -16,7 +16,7 @@ public class Task<I, O> extends BaseTask {
     private TaskResult<O>   resultWrapper = new TaskResult<>();
     private Job<I, O>       job           = i -> null;
     private OnSuccess<I, O> onSuccess     = i -> null;
-    private OnFailure<I, O> onFailure     = i -> null;
+    private OnFailure<I, O> onFailure     = (i, e) -> null;
     private boolean         abortIfFailed = false;
     // exceptionPolicy: abortFlow, ignore, self-define
 
@@ -31,8 +31,8 @@ public class Task<I, O> extends BaseTask {
         return job.doJob(param);
     }
 
-    public O onFailure() {
-        return onFailure.doCallback(param);
+    public O onFailure(Throwable exception) {
+        return onFailure.doCallback(param, exception);
     }
 
     public O onSuccess() {

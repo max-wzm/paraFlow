@@ -51,12 +51,12 @@ public class TaskTest {
                 e.printStackTrace();
             }
             System.out.println("a throws");
-            throw new RuntimeException();
-//            return null;
+            int k = 9/0;
+            return null;
         });
-        a.setOnFailure(i->{
+        a.setOnFailure((i, e)->{
             System.out.println("Exception");
-            int m = 1/0;
+            e.printStackTrace();
             return null;
         });
         a.setOnSuccess(i -> {
