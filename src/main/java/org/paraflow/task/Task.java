@@ -3,22 +3,30 @@ package org.paraflow.task;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.paraflow.action.Job;
-import org.paraflow.action.OnFailure;
-import org.paraflow.action.OnSuccess;
+import org.paraflow.action.TaskCallback;
 
 /**
  * @author wangzhiming
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class Task<I, O> extends BaseTask {
-    private I               param;
-    private TaskResult<O>   resultWrapper = new TaskResult<>();
-    private Job<I, O>       job           = i -> null;
-    private OnSuccess<I, O> onSuccess     = i -> null;
-    private OnFailure<I, O> onFailure     = (i, e) -> null;
-    private boolean         abortIfFailed = false;
-    // exceptionPolicy: abortFlow, ignore, self-define
+class Task<I, O> extends BaseTask {
+    private I             param;
+    private TaskResult<O> resultWrapper = new TaskResult<>();
+    private Job<I, O>     job           = i -> null;
+    private boolean       abortIfFailed = false;
+
+    private TaskCallback<O> callback = new TaskCallback<O>() {
+        @Override
+        public O onSuccess(O result) {
+            return result;
+        }
+
+        @Override
+        public O onFailure(O result, Throwable exception) {
+            return result;
+        }
+    };
 
     public Task() {
     }
@@ -27,21 +35,35 @@ public class Task<I, O> extends BaseTask {
         super(id);
     }
 
-    public O execute() {
-        return job.doJob(param);
+    public Task(String id, TaskCallback<O> callback) {
+        super(id);
+        this.callback = callback;
     }
 
-    public O onFailure(Throwable exception) {
-        return onFailure.doCallback(param, exception);
+    TaskResult<O> execute() {
+        resultWrapper.setResult(job.doJob(param));
+        return resultWrapper;
     }
 
-    public O onSuccess() {
-        return onSuccess.doCallback(param);
+    TaskResult<O> onFailure(Throwable exception) {
+        resultWrapper.setState(TaskStateEnum.FAILURE);
+        resultWrapper.setResult(callback.onFailure(resultWrapper.getResult(), exception));
+        return resultWrapper;
+    }
+
+    TaskResult<O> onSuccess() {
+        resultWrapper.setState(TaskStateEnum.SUCCESS);
+        resultWrapper.setResult(callback.onSuccess(resultWrapper.getResult()));
+        return resultWrapper;
     }
 
     public void setJob(I param, Job<I, O> job) {
         this.job = job;
         this.param = param;
+    }
+
+    public O getTaskResult() {
+        return resultWrapper.getResult();
     }
 
 }

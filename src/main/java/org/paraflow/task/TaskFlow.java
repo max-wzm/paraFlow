@@ -36,7 +36,7 @@ public class TaskFlow {
         return true;
     }
 
-    public boolean start() throws ExecutionException, InterruptedException {
+    public boolean start() {
         Map<Integer, List<Task>> layer2Task = initDependLayer();
         int maxLayer = layer2Task.size() - 1;
 
@@ -49,23 +49,17 @@ public class TaskFlow {
                         .toArray(CompletableFuture[]::new);
 
                 CompletableFuture<TaskResult> future = CompletableFuture.allOf(deps).thenApplyAsync(v -> {
-                    Object obj = task.execute();
-                    TaskResult resWrapper = task.getResultWrapper();
-                    resWrapper.setResult(obj);
-                    return resWrapper;
+                    System.out.println("start excute task");
+                    return task.execute();
                 }, executorService).handle((resWrapper, e) -> {
                     if (e != null) {
-                        resWrapper = task.getResultWrapper();
-                        resWrapper.setState(TaskStateEnum.FAILURE);
-                        resWrapper.setResult(task.onFailure(e.getCause()));
+                        resWrapper = task.onFailure(e.getCause());
                         if (task.isAbortIfFailed()) {
-                            abort();
+                            executorService.execute(this::abort);
                         }
                         return resWrapper;
                     }
-                    resWrapper.setState(TaskStateEnum.SUCCESS);
-                    resWrapper.setResult(task.onSuccess());
-                    return resWrapper;
+                    return task.onSuccess();
                 });
                 id2Future.put(task.getId(), future);
             }
@@ -73,11 +67,16 @@ public class TaskFlow {
         synchronized (lock) {
             lock.notifyAll();
         }
-        CompletableFuture.allOf(id2Future.values().toArray(new CompletableFuture[0])).get();
+        System.out.println("print sth");
+        try {
+            CompletableFuture.allOf(id2Future.values().toArray(new CompletableFuture[0])).get();
+        } catch (Exception e) {
+            return false;
+        }
         return true;
     }
 
-    public void abort() {
+    private void abort() {
         synchronized (lock) {
             while (id2Future.size() != id2TaskMap.size()) {
                 try {
@@ -112,5 +111,13 @@ public class TaskFlow {
         }
         id2TaskMap.forEach((key, value) -> System.out.println(key + ": " + value.getDepLayer()));
         return id2TaskMap.values().stream().collect(Collectors.groupingBy(BaseTask::getDepLayer));
+    }
+
+    public static void sleepIgnoreInterrupt(int duration, TimeUnit timeUnit) {
+        try {
+            Thread.sleep(timeUnit.toMillis(duration));
+        } catch (InterruptedException ignored) {
+
+        }
     }
 }

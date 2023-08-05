@@ -12,15 +12,15 @@ import java.util.UUID;
  */
 @Data
 public class BaseTask {
-    private String         id          = UUID.randomUUID().toString();
+    private String         id;
     private List<String>   prevTaskIds = new ArrayList<>();
     private List<BaseTask> nextTasks   = new ArrayList<>();
-    private TaskStateEnum  state;
+    private TaskStateEnum  state       = TaskStateEnum.INIT;
     private int            depLayer    = 0;
     private int            inDegree    = 0;
 
     public BaseTask() {
-
+        this.id = UUID.randomUUID().toString();
     }
 
     public BaseTask(String id) {
